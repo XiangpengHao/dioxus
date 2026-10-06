@@ -701,9 +701,11 @@ mod struct_info {
                         if let (Some(old_handler), Some(new_handler)) = (self.#name.as_mut(), new.#name.as_ref()) {
                             old_handler.__point_to(new_handler);
                         }
-                        // Otherwise just move the new handler into self
+                        // Otherwise take the new handler, if there is one. It is owned by the new
+                        // props, which are dropped after the diff, so take a reference owned by
+                        // these props instead
                         else {
-                            self.#name = new.#name;
+                            self.#name = new.#name.as_ref().map(|new_handler| new_handler.__reference_in_current_owner());
                         }
                     }
                 } else {
@@ -1519,7 +1521,8 @@ Finally, call `.build()` to create the instance of `{name}`.
                             unreachable!()
                         }
                         fn memoize(&mut self, new: &Self) -> bool {
-                            self.inner.memoize(&new.inner)
+                            // Anything the props take from the new props while diffing is owned by these props
+                            dioxus_core::with_owner(self.owner.clone(), || self.inner.memoize(&new.inner))
                         }
                     }
 
